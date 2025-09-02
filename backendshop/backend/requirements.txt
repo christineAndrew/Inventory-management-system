@@ -1,0 +1,4 @@
+Django==5.2.5
+graphene-django==3.2.2
+psycopg2-binary==2.9.9
+django-cors-headers==4.3.1
