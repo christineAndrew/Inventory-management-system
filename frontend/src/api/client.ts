@@ -7,17 +7,17 @@ import { REFRESH_TOKEN } from '../api/mutations';
 import { ENDPOINT } from '../api/environment';
 
 const httpLink = createHttpLink({
-  uri: `${ENDPOINT}/graphql/`, // Correct string interpolation
+  uri: ENDPOINT, // ENDPOINT already includes /graphql/
 });
 
 
-// Add the JWT token to the headers
+// Add the JWT token to the headers (only if token exists)
 const authLink = setContext((_, { headers }) => {
   const token = getAccessToken();
   return {
     headers: {
       ...headers,
-      authorization: token ? `Bearer ${token}` : '', // Include the token if available
+      ...(token && { authorization: `Bearer ${token}` }), // Only include authorization if token exists
     },
   };
 });
@@ -39,7 +39,7 @@ const errorLink = new ApolloLink((operation, forward) => {
           }
 
           // Refresh the token
-          fetch(`${ENDPOINT}/graphql/`, {
+          fetch(ENDPOINT, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ const errorLink = new ApolloLink((operation, forward) => {
 });
 
 const client = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]), // Chain the links
+  link: httpLink, // Use only httpLink for now to debug
   cache: new InMemoryCache(),
 });
 

@@ -1,14 +1,17 @@
-// File: src/components/StatsGrid.tsx
+import React from 'react';
+import type { DashboardData } from '../types';
 
+interface StatsGridProps {
+  data?: DashboardData;
+}
 
-const StatsGrid: React.FC = () => {
-  // Mock data - in a real app this would come from GraphQL queries
+const StatsGrid: React.FC<StatsGridProps> = ({ data }) => {
   const stats = [
     {
       title: 'Daily Profit',
-      value: '$1,248.50',
-      change: '+12.4%',
-      changeType: 'positive',
+      value: `$${Number(data?.dailyProfit || 0).toFixed(2)}`,
+      change: '+0.0%',
+      changeType: data?.dailyProfit && Number(data.dailyProfit) > 0 ? 'positive' : 'negative',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -17,9 +20,9 @@ const StatsGrid: React.FC = () => {
     },
     {
       title: 'Weekly Profit',
-      value: '$8,426.75',
-      change: '+8.2%',
-      changeType: 'positive',
+      value: `$${Number(data?.weeklyProfit || 0).toFixed(2)}`,
+      change: '+0.0%',
+      changeType: data?.weeklyProfit && Number(data.weeklyProfit) > 0 ? 'positive' : 'negative',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -28,9 +31,9 @@ const StatsGrid: React.FC = () => {
     },
     {
       title: 'Daily Loss',
-      value: '$245.30',
-      change: '-3.2%',
-      changeType: 'negative',
+      value: `$${Number(data?.dailyLoss || 0).toFixed(2)}`,
+      change: '+0.0%',
+      changeType: data?.dailyLoss && Number(data.dailyLoss) > 0 ? 'negative' : 'positive',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -39,9 +42,9 @@ const StatsGrid: React.FC = () => {
     },
     {
       title: 'Weekly Loss',
-      value: '$1,426.20',
-      change: '+5.1%',
-      changeType: 'negative',
+      value: `$${Number(data?.weeklyLoss || 0).toFixed(2)}`,
+      change: '+0.0%',
+      changeType: data?.weeklyLoss && Number(data.weeklyLoss) > 0 ? 'negative' : 'positive',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
@@ -50,8 +53,8 @@ const StatsGrid: React.FC = () => {
     },
     {
       title: 'Total Products',
-      value: '1,248',
-      change: '+24',
+      value: data?.totalProducts?.toString() || '0',
+      change: '+0',
       changeType: 'positive',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,8 +64,8 @@ const StatsGrid: React.FC = () => {
     },
     {
       title: 'Products Sold Today',
-      value: '184',
-      change: '+18',
+      value: data?.productsSoldToday?.toString() || '0',
+      change: '+0',
       changeType: 'positive',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -83,7 +86,7 @@ const StatsGrid: React.FC = () => {
             <h3 className="text-sm font-medium text-gray-600">{stat.title}</h3>
             <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
             <p className={`text-sm ${stat.changeType === 'positive' ? 'text-green-500' : 'text-red-500'}`}>
-              {stat.change} from previous period
+              {stat.change}
             </p>
           </div>
         </div>

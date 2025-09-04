@@ -1,48 +1,51 @@
 // File: src/components/Dashboard.tsx
 import React from 'react';
+import { useQuery } from '@apollo/client/react'; // Fixed import
+import { GET_DASHBOARD_DATA } from '../api/queries';
+import Header from './Header';
+import StatsGrid from './StatsGrid';
+import RecentSales from './RecentSales';
+import ProfitLossChart from './ProfitLossChart';
+import LowStockAlert from './LowStockAlert';
+import type { DashboardData, LowStockItem, RecentSale, ProfitLossData } from '../types';
+
+interface DashboardQueryResult {
+  dashboardData: DashboardData;
+  lowStockItems: LowStockItem[];
+  recentSales: RecentSale[];
+  profitLossData: ProfitLossData[];
+}
 
 const Dashboard: React.FC = () => {
+  const { loading, error, data } = useQuery<DashboardQueryResult>(GET_DASHBOARD_DATA);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-xl">Loading dashboard data...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-xl text-red-500">Error loading dashboard: {error.message}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome to your shop inventory management system</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-700">Total Products</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">0</p>
+      <Header />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="lg:col-span-2">
+          <StatsGrid data={data?.dashboardData} />
+          <ProfitLossChart data={data?.profitLossData} />
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-700">Total Revenue</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">$0</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-700">Low Stock Items</h3>
-          <p className="text-3xl font-bold text-red-600 mt-2">0</p>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold text-gray-700">Categories</h3>
-          <p className="text-3xl font-bold text-purple-600 mt-2">0</p>
-        </div>
-      </div>
-      
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h2>
-        <div className="flex flex-wrap gap-4">
-          <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-            Add Product
-          </button>
-          <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
-            View Reports
-          </button>
-          <button className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg">
-            Manage Categories
-          </button>
+        <div className="space-y-6">
+          <RecentSales data={data?.recentSales} />
+          <LowStockAlert data={data?.lowStockItems} />
         </div>
       </div>
     </div>

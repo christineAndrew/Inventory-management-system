@@ -1,4 +1,6 @@
 // File: src/types/index.ts
+
+// Product Types
 export interface Product {
   id: number;
   name: string;
@@ -17,3 +19,58 @@ export interface ProductFormData {
   costPrice: string;
   sellingPrice: string;
 }
+
+// Add category options
+export const PRODUCT_CATEGORIES = [
+  'Electronics',
+  'Clothing',
+  'Food & Beverages',
+  'Books',
+  'Home & Garden',
+  'Sports & Outdoors',
+  'Beauty & Health',
+  'Toys & Games',
+  'Automotive',
+  'Office Supplies',
+  'Jewelry',
+  'Furniture',
+  'Other'
+] as const;
+
+// Use a type alias instead of export type for the category
+export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];
+
+// Dashboard Types
+export interface DashboardData {
+  dailyProfit: number;
+  weeklyProfit: number;
+  dailyLoss: number;
+  weeklyLoss: number;
+  totalProducts: number;
+  productsSoldToday: number;
+}
+
+export interface LowStockItem {
+  id: number;
+  name: string;
+  currentStock: number;
+  minStock: number;
+}
+
+export interface RecentSale {
+  id: number;
+  productName: string;
+  quantity: number;
+  amount: number;
+  saleDate: string;
+}
+
+export interface ProfitLossData {
+  date: string;
+  profit: number;
+  loss: number;
+}
+
+// If you need to export types from other files, you can do:
+// export * from './product';
+// export * from './dashboard';

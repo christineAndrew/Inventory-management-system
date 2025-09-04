@@ -1,13 +1,16 @@
-// File: src/components/Products/ProductList.tsx
+/// File: src/pages/Products/ProductList.tsx
+// File: src/pages/Products/ProductList.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { GET_PRODUCTS } from '../../api/queries';
 import { DELETE_PRODUCT } from '../../api/mutations';
 import type { Product } from '../../types';
-import ProductForm from './ProductForm';
+import { PRODUCT_CATEGORIES } from '../../types';
+import ProductForm from '../../pages/Products/ProductForm';
 
 const ProductList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   
@@ -23,6 +26,10 @@ const ProductList: React.FC = () => {
     setSearchTerm(e.target.value);
   };
 
+  const handleCategoryFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCategoryFilter(e.target.value);
+  };
+
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setIsFormOpen(true);
@@ -30,12 +37,7 @@ const ProductList: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      try {
-        await deleteProduct({ variables: { id } });
-      } catch (error) {
-        console.error('Error deleting product:', error);
-        alert('Failed to delete product. Please try again.');
-      }
+      await deleteProduct({ variables: { id } });
     }
   };
 
@@ -49,8 +51,29 @@ const ProductList: React.FC = () => {
     handleFormClose();
   };
 
-  if (loading) return <div className="text-center py-8">Loading...</div>;
-  if (error) return <div className="text-center py-8 text-red-500">Error: {error.message}</div>;
+  // Filter products by category if a filter is selected
+  // Use optional chaining and nullish coalescing to handle undefined data
+  const filteredProducts = data?.products?.filter((product: Product) => 
+    categoryFilter ? product.category === categoryFilter : true
+  ) ?? [];
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-8">Loading products...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-8 text-red-500">
+          Error loading products: {error.message}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -64,14 +87,32 @@ const ProductList: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-6">
-        <input
-          type="text"
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Search Products</label>
+          <input
+            type="text"
+            placeholder="Search by name, description..."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Category</label>
+          <select
+            value={categoryFilter}
+            onChange={handleCategoryFilter}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">All Categories</option>
+            {PRODUCT_CATEGORIES.map(category => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
@@ -96,7 +137,7 @@ const ProductList: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {data.products.map((product: any) => (
+            {filteredProducts.map((product: Product) => (
               <tr key={product.id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -105,7 +146,9 @@ const ProductList: React.FC = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.category}
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    {product.category}
+                  </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   ${product.costPrice}
@@ -131,6 +174,14 @@ const ProductList: React.FC = () => {
             ))}
           </tbody>
         </table>
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            {data?.products?.length === 0 
+              ? 'No products found. Add your first product!' 
+              : `No products found${categoryFilter ? ` in category "${categoryFilter}"` : ''}`
+            }
+          </div>
+        )}
       </div>
 
       {isFormOpen && (
