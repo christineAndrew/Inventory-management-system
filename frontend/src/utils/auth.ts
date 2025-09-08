@@ -1,5 +1,5 @@
 // Store tokens and user in local storage
-export const setAuthToken = (user: object, profile: string, accessToken: string, refreshToken: string) => {
+export const setAuthToken = (user: object, _profile: string, accessToken: string, refreshToken: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user)); // Store user data

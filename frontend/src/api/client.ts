@@ -1,103 +1,23 @@
-import { ApolloClient, InMemoryCache, createHttpLink, ApolloLink, from } from '@apollo/client';
-import { setContext } from '@apollo/client/link/context';
-import { Observable } from '@apollo/client/utilities';
-import { getAccessToken, getRefreshToken, setAuthToken } from '../utils/auth';
-import { REFRESH_TOKEN } from '../api/mutations';
-
+import { ApolloClient, InMemoryCache, createHttpLink } from '@apollo/client';
 import { ENDPOINT } from '../api/environment';
 
+// Simplified Apollo Client without authentication
 const httpLink = createHttpLink({
-  uri: ENDPOINT, // ENDPOINT already includes /graphql/
-});
-
-
-// Add the JWT token to the headers (only if token exists)
-const authLink = setContext((_, { headers }) => {
-  const token = getAccessToken();
-  return {
-    headers: {
-      ...headers,
-      ...(token && { authorization: `Bearer ${token}` }), // Only include authorization if token exists
-    },
-  };
-});
-
-// Error handling and token refresh logic
-const errorLink = new ApolloLink((operation, forward) => {
-  return new Observable((observer) => {
-    const sub = forward(operation).subscribe({
-      next: (result) => {
-        // Check for token expiry error
-        if (result.errors && result.errors.some((err) => err.message === 'Token has expired. Please log in again.')) {
-          const refreshToken = getRefreshToken();
-
-          if (!refreshToken) {
-            // No refresh token available, redirect to login
-            window.location.href = '/auth';
-            observer.complete();
-            return;
-          }
-
-          // Refresh the token
-          fetch(ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: REFRESH_TOKEN,
-              variables: { refreshToken },
-            }),
-          })
-            .then((res) => res.json())
-            .then(({ data }) => {
-              if (data?.refreshToken?.accessToken) {
-                // Save the new access token
-                setAuthToken(data.refreshToken.accessToken, refreshToken, data.refreshToken.user);
-
-                // Update the headers with the new token
-                operation.setContext(({ headers = {} }) => ({
-                  headers: {
-                    ...headers,
-                    authorization: `Bearer ${data.refreshToken.accessToken}`,
-                  },
-                }));
-
-                // Retry the original request
-                const retrySub = forward(operation).subscribe({
-                  next: (retryResult) => observer.next(retryResult),
-                  error: (retryError) => observer.error(retryError),
-                  complete: () => observer.complete(),
-                });
-
-                return () => retrySub.unsubscribe();
-              } else {
-                // Redirect to login if token refresh fails
-                window.location.href = '/auth';
-                observer.complete();
-              }
-            })
-            .catch(() => {
-              // Redirect to login if token refresh fails
-              window.location.href = '/auth';
-              observer.complete();
-            });
-        } else {
-          // No token expiry error, pass the result through
-          observer.next(result);
-        }
-      },
-      error: (err) => observer.error(err),
-      complete: () => observer.complete(),
-    });
-
-    return () => sub.unsubscribe();
-  });
+  uri: ENDPOINT,
+  credentials: 'include', // Include cookies for CSRF if needed
 });
 
 const client = new ApolloClient({
-  link: httpLink, // Use only httpLink for now to debug
+  link: httpLink,
   cache: new InMemoryCache(),
+  defaultOptions: {
+    watchQuery: {
+      errorPolicy: 'all',
+    },
+    query: {
+      errorPolicy: 'all',
+    },
+  },
 });
 
 export default client;

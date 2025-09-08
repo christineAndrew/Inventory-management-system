@@ -1,4 +1,3 @@
-/// File: src/pages/Products/ProductList.tsx
 // File: src/pages/Products/ProductList.tsx
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
@@ -8,13 +7,18 @@ import type { Product } from '../../types';
 import { PRODUCT_CATEGORIES } from '../../types';
 import ProductForm from '../../pages/Products/ProductForm';
 
+// Define the type for the products query response
+interface ProductsQueryResult {
+  products: Product[];
+}
+
 const ProductList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   
-  const { loading, error, data, refetch } = useQuery(GET_PRODUCTS, {
+  const { loading, error, data, refetch } = useQuery<ProductsQueryResult>(GET_PRODUCTS, {
     variables: { search: searchTerm }
   });
   

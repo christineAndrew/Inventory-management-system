@@ -1,5 +1,8 @@
+// File: src/types/index.t
 // File: src/types/index.ts
-
+// Make sure Sale and related types are properly exported
+export * from './product';
+export * from './sales'; // This should export Sale and related types
 // Product Types
 export interface Product {
   id: number;
@@ -57,11 +60,12 @@ export interface LowStockItem {
   minStock: number;
 }
 
+// File: src/types/index.ts
 export interface RecentSale {
   id: number;
   productName: string;
   quantity: number;
-  amount: number;
+  amount: number | string; // Allow both number and string
   saleDate: string;
 }
 

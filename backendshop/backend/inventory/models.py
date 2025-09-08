@@ -1,9 +1,8 @@
 from django.db import models
 from decimal import Decimal
+from django.contrib.auth.models import User
 
 # Create your models here.
-
-from django.db import models
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
@@ -20,25 +19,45 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-
-
-# File: inventory/models.py
-
-
 class Sale(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='sales')
-    quantity = models.PositiveIntegerField()
-    selling_price = models.DecimalField(max_digits=10, decimal_places=2)
-    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
-    sale_date = models.DateTimeField(auto_now_add=True)
+    sale_number = models.CharField(max_length=50, unique=True, default='SALE-001')
+    customer_name = models.CharField(max_length=255, blank=True, null=True)
+    customer_email = models.EmailField(blank=True, null=True)
+    customer_phone = models.CharField(max_length=20, blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    tax_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    final_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    status = models.CharField(max_length=20, default='COMPLETED')
+    payment_method = models.CharField(max_length=20, default='CASH')
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     
     class Meta:
-        ordering = ['-sale_date']
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.product.name} - {self.quantity} units"
-    
+        return f"Sale {self.sale_number}"
 
+class SaleItem(models.Model):
+    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('Product', on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    profit = models.DecimalField(max_digits=10, decimal_places=2)
 
+    class Meta:
+        ordering = ['id']
 
-    
+    def __str__(self):
+        return f"{self.product.name} x {self.quantity}"
+
+    def save(self, *args, **kwargs):
+        # Calculate total price and profit
+        self.total_price = self.unit_price * self.quantity
+        self.profit = (self.unit_price - self.cost_price) * self.quantity
+        super().save(*args, **kwargs)

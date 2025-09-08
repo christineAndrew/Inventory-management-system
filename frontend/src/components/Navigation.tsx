@@ -18,29 +18,38 @@ const Navigation: React.FC = () => {
           </Link>
           
           <div className="flex space-x-6">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className={`px-3 py-2 rounded-md text-sm font-medium ${
-                isActive('/') 
-                  ? 'bg-blue-500 text-white' 
+                isActive('/')
+                  ? 'bg-blue-500 text-white'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               Dashboard
             </Link>
             
-            <Link 
-              to="/products" 
+            <Link
+              to="/products"
               className={`px-3 py-2 rounded-md text-sm font-medium ${
-                isActive('/products') 
-                  ? 'bg-blue-500 text-white' 
+                isActive('/products')
+                  ? 'bg-blue-500 text-white'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
               Products
             </Link>
             
-            {/* Add more navigation links as needed */}
+            <Link
+              to="/sales"
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                isActive('/sales')
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Sales
+            </Link>
           </div>
         </div>
       </div>

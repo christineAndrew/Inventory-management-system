@@ -16,9 +16,6 @@ export const GET_PRODUCTS = gql`
   }
 `;
 
-
-
-
 export const GET_PRODUCT = gql`
   query GetProduct($id: Int!) {
     product(id: $id) {
@@ -31,11 +28,6 @@ export const GET_PRODUCT = gql`
     }
   }
 `;
-
-
-// File: src/api/queries.ts
-
-
 
 export const GET_DASHBOARD_DATA = gql`
   query GetDashboardData {
@@ -64,6 +56,93 @@ export const GET_DASHBOARD_DATA = gql`
       date
       profit
       loss
+    }
+  }
+`;
+
+// Sales Queries
+export const GET_SALES = gql`
+  query GetSales($startDate: DateTime, $endDate: DateTime, $limit: Int) {
+    sales(startDate: $startDate, endDate: $endDate, limit: $limit) {
+      id
+      saleNumber
+      customerName
+      customerEmail
+      customerPhone
+      totalAmount
+      taxAmount
+      discountAmount
+      finalAmount
+      status
+      paymentMethod
+      notes
+      createdAt
+      items {
+        id
+        productName
+        quantity
+        unitPrice
+        totalPrice
+        profit
+      }
+    }
+  }
+`;
+
+export const GET_SALE = gql`
+  query GetSale($id: Int!) {
+    sale(id: $id) {
+      id
+      saleNumber
+      customerName
+      customerEmail
+      customerPhone
+      totalAmount
+      taxAmount
+      discountAmount
+      finalAmount
+      status
+      paymentMethod
+      notes
+      createdAt
+      items {
+        id
+        productName
+        quantity
+        unitPrice
+        totalPrice
+        profit
+      }
+    }
+  }
+`;
+
+export const CREATE_SALE = gql`
+  mutation CreateSale($input: SaleInput!) {
+    createSale(input: $input) {
+      sale {
+        id
+        saleNumber
+        customerName
+        customerEmail
+        customerPhone
+        totalAmount
+        taxAmount
+        discountAmount
+        finalAmount
+        status
+        paymentMethod
+        notes
+        createdAt
+        items {
+          id
+          productName
+          quantity
+          unitPrice
+          totalPrice
+          profit
+        }
+      }
     }
   }
 `;

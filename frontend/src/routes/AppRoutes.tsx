@@ -2,16 +2,18 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Dashboard from '../components/Dashboard';
-// import ProductsPage from '../pages/Products/ProductsPage';
-// import ProductForm from '../pages/Products/ProductForm';
 import ProductList from '../pages/Products/ProductList';
+import SalesPage from '../pages/Sales/SalesPage';
 
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/products" element={<ProductList />} />
-      {/* Add more routes as needed */}
+      <Route path="/sales" element={<SalesPage />} />
+      
+      {/* Optional: Redirect unknown routes to dashboard */}
+      <Route path="*" element={<Dashboard />} />
     </Routes>
   );
 };

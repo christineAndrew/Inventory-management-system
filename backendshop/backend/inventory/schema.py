@@ -5,25 +5,68 @@ from django.db.models import Sum, Q, F, Count
 from django.utils import timezone
 from datetime import timedelta, datetime
 from decimal import Decimal
-from .models import Product, Sale
+from .models import Product, Sale, SaleItem
+import random
+import string
+
+class SaleType(DjangoObjectType):
+    class Meta:
+        model = Sale
+        fields = "__all__"
+
+         # Ensure numeric fields are properly typed
+    total_amount = graphene.Decimal()
+    tax_amount = graphene.Decimal()
+    discount_amount = graphene.Decimal()
+    final_amount = graphene.Decimal()
+
+
+    items = graphene.List(lambda: SaleItemType)
+
+
+
+    def resolve_items(self, info):
+        return self.items.all()
+
+class SaleItemType(DjangoObjectType):
+    class Meta:
+        model = SaleItem
+        fields = "__all__"
+
+    unit_price = graphene.Decimal()
+    total_price = graphene.Decimal()
+    profit = graphene.Decimal()
+    product_name = graphene.String()
+
+    def resolve_product_name(self, info):
+        return self.product.name
+    
+class SaleItemInput(graphene.InputObjectType):
+    product_id = graphene.Int(required=True)
+    quantity = graphene.Int(required=True)
+    unit_price = graphene.Decimal(required=True)
+
+class SaleInput(graphene.InputObjectType):
+    customer_name = graphene.String()
+    customer_email = graphene.String()
+    customer_phone = graphene.String()
+    items = graphene.List(SaleItemInput, required=True)
+    tax_amount = graphene.Decimal(default_value=0)
+    discount_amount = graphene.Decimal(default_value=0)
+    payment_method = graphene.String(default_value="CASH")
+    notes = graphene.String()
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = "__all__"
 
-# File: inventory/schema.py
-# ... existing code ...
-
 class ProductInput(graphene.InputObjectType):
     name = graphene.String(required=True)
     description = graphene.String()
-    category = graphene.String(required=True)  # Make sure this exists
+    category = graphene.String(required=True)
     cost_price = graphene.Decimal(required=True)
     selling_price = graphene.Decimal(required=True)
-
-# ... rest of the schema code ...
-
 
 class CreateProduct(graphene.Mutation):
     class Arguments:
@@ -71,15 +114,83 @@ class DeleteProduct(graphene.Mutation):
         product.delete()
         return DeleteProduct(success=True)
 
+class CreateSale(graphene.Mutation):
+    class Arguments:
+        input = SaleInput(required=True)
+
+    sale = graphene.Field(SaleType)
+
+    def mutate(self, info, input):
+        # Generate a unique sale number
+        sale_number = 'S' + ''.join(random.choices(string.digits, k=6))
+        while Sale.objects.filter(sale_number=sale_number).exists():
+            sale_number = 'S' + ''.join(random.choices(string.digits, k=6))
+        
+        # Calculate total amount
+        total_amount = Decimal('0')
+        final_amount = Decimal('0')
+        sale_items_data = []
+        
+        for item in input.items:
+            product = Product.objects.get(id=item.product_id)
+            item_total = item.unit_price * item.quantity
+            total_amount += item_total
+            
+            sale_items_data.append({
+                'product': product,
+                'quantity': item.quantity,
+                'unit_price': item.unit_price,
+                'cost_price': product.cost_price,
+                'total_price': item_total,
+                'profit': (item.unit_price - product.cost_price) * item.quantity
+            })
+        
+        # Calculate final amount
+        tax_amount = input.tax_amount or Decimal('0')
+        discount_amount = input.discount_amount or Decimal('0')
+        final_amount = total_amount + tax_amount - discount_amount
+        
+        # Create sale
+        sale = Sale.objects.create(
+            sale_number=sale_number,
+            customer_name=input.customer_name or '',
+            customer_email=input.customer_email or '',
+            customer_phone=input.customer_phone or '',
+            total_amount=total_amount,
+            tax_amount=tax_amount,
+            discount_amount=discount_amount,
+            final_amount=final_amount,
+            status='COMPLETED',
+            payment_method=input.payment_method,
+            notes=input.notes or '',
+            created_by=info.context.user if info.context.user.is_authenticated else None
+        )
+        
+        # Create sale items
+        for item_data in sale_items_data:
+            SaleItem.objects.create(sale=sale, **item_data)
+        
+        return CreateSale(sale=sale)
+
+class ProfitLossType(graphene.ObjectType):
+    date = graphene.String()
+    profit = graphene.Decimal()
+    loss = graphene.Decimal()
+    revenue = graphene.Decimal()
+    cost = graphene.Decimal()
+
+class ProfitLossAnalytics(graphene.ObjectType):
+    daily = graphene.List(ProfitLossType)
+    weekly = graphene.List(ProfitLossType)
+    total_profit = graphene.Decimal()
+    total_loss = graphene.Decimal()
+    total_revenue = graphene.Decimal()
+
 class Mutation(graphene.ObjectType):
     create_product = CreateProduct.Field()
     update_product = UpdateProduct.Field()
     delete_product = DeleteProduct.Field()
-
-
-
-    # File: inventory/schema.py
-
+    create_sale = CreateSale.Field()
 
 class DashboardDataType(graphene.ObjectType):
     daily_profit = graphene.Decimal()
@@ -95,13 +206,13 @@ class LowStockItemType(graphene.ObjectType):
     current_stock = graphene.Int()
     min_stock = graphene.Int()
 
+# In your Django schema, ensure amount is returned as float/decimal
 class RecentSaleType(graphene.ObjectType):
     id = graphene.Int()
     product_name = graphene.String()
     quantity = graphene.Int()
-    amount = graphene.Decimal()
+    amount = graphene.Decimal()  # Use Decimal instead of String
     sale_date = graphene.DateTime()
-
 class ProfitLossDataType(graphene.ObjectType):
     date = graphene.String()
     profit = graphene.Decimal()
@@ -115,6 +226,12 @@ class Query(graphene.ObjectType):
     
     products = graphene.List(ProductType, search=graphene.String())
     product = graphene.Field(ProductType, id=graphene.Int())
+    sales = graphene.List(
+        SaleType,
+        start_date=graphene.DateTime(required=False),
+        end_date=graphene.DateTime(required=False),
+        limit=graphene.Int(required=False)
+    )
 
     def resolve_products(self, info, search=None, **kwargs):
         if search:
@@ -128,34 +245,42 @@ class Query(graphene.ObjectType):
 
     def resolve_product(self, info, id):
         return Product.objects.get(pk=id)
+
+    def resolve_sales(self, info, start_date=None, end_date=None, limit=None):
+        qs = Sale.objects.all()
+
+        if start_date:
+            qs = qs.filter(created_at__gte=start_date)
+        if end_date:
+            qs = qs.filter(created_at__lte=end_date)
+        if limit:
+            qs = qs[:limit]
+
+        return qs
+
     def resolve_dashboard_data(self, info):
         today = timezone.now().date()
         week_ago = today - timedelta(days=7)
         
         # Calculate daily profit (today's sales profit)
-        daily_sales = Sale.objects.filter(sale_date__date=today)
+        daily_sales = Sale.objects.filter(created_at__date=today)
         daily_profit = daily_sales.aggregate(
-            total_profit=Sum((F('selling_price') - F('cost_price')) * F('quantity'))
+            total_profit=Sum('final_amount')
         )['total_profit'] or Decimal('0.00')
         
         # Calculate weekly profit (last 7 days sales profit)
-        weekly_sales = Sale.objects.filter(sale_date__date__gte=week_ago)
+        weekly_sales = Sale.objects.filter(created_at__date__gte=week_ago)
         weekly_profit = weekly_sales.aggregate(
-            total_profit=Sum((F('selling_price') - F('cost_price')) * F('quantity'))
+            total_profit=Sum('final_amount')
         )['total_profit'] or Decimal('0.00')
         
         # For this example, we'll calculate loss as products that were sold below cost
         # You might have a different way to track losses
-        daily_loss = daily_sales.filter(selling_price__lt=F('cost_price')).aggregate(
-            total_loss=Sum((F('cost_price') - F('selling_price')) * F('quantity'))
-        )['total_loss'] or Decimal('0.00')
-        
-        weekly_loss = weekly_sales.filter(selling_price__lt=F('cost_price')).aggregate(
-            total_loss=Sum((F('cost_price') - F('selling_price')) * F('quantity'))
-        )['total_loss'] or Decimal('0.00')
+        daily_loss = Decimal('0.00')
+        weekly_loss = Decimal('0.00')
         
         total_products = Product.objects.count()
-        products_sold_today = daily_sales.aggregate(total_sold=Sum('quantity'))['total_sold'] or 0
+        products_sold_today = daily_sales.aggregate(total_sold=Sum('items__quantity'))['total_sold'] or 0
         
         return DashboardDataType(
             daily_profit=daily_profit,
@@ -172,14 +297,14 @@ class Query(graphene.ObjectType):
         return []
     
     def resolve_recent_sales(self, info):
-        recent_sales = Sale.objects.select_related('product').order_by('-sale_date')[:5]
+        recent_sales = Sale.objects.prefetch_related('items__product').order_by('-created_at')[:5]
         return [
             RecentSaleType(
                 id=sale.id,
-                product_name=sale.product.name,
-                quantity=sale.quantity,
-                amount=sale.selling_price * sale.quantity,
-                sale_date=sale.sale_date
+                product_name=', '.join([item.product.name for item in sale.items.all()]),
+                quantity=sum([item.quantity for item in sale.items.all()]),
+                amount=sale.final_amount,
+                sale_date=sale.created_at
             )
             for sale in recent_sales
         ]
@@ -191,16 +316,14 @@ class Query(graphene.ObjectType):
         
         for i in range(6, -1, -1):  # Last 7 days including today
             date = today - timedelta(days=i)
-            day_sales = Sale.objects.filter(sale_date__date=date)
+            day_sales = Sale.objects.filter(created_at__date=date)
             
             profit = day_sales.aggregate(
-                total_profit=Sum((F('selling_price') - F('cost_price')) * F('quantity'))
+                total_profit=Sum('final_amount')
             )['total_profit'] or Decimal('0.00')
             
             # Calculate loss for products sold below cost
-            loss = day_sales.filter(selling_price__lt=F('cost_price')).aggregate(
-                total_loss=Sum((F('cost_price') - F('selling_price')) * F('quantity'))
-            )['total_loss'] or Decimal('0.00')
+            loss = Decimal('0.00')
             
             profit_loss_data.append(
                 ProfitLossDataType(
@@ -211,3 +334,91 @@ class Query(graphene.ObjectType):
             )
         
         return profit_loss_data
+    
+    def resolve_profit_loss_analytics(self, info, days=30):
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get all completed sales in the period
+        sales = Sale.objects.filter(
+            created_at__date__range=[start_date, end_date],
+            status='COMPLETED'
+        )
+        
+        # Calculate daily profit/loss
+        daily_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            daily_sales = sales.filter(created_at__date=current_date)
+            daily_revenue = daily_sales.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+            
+            # Calculate profit and loss
+            daily_items = SaleItem.objects.filter(sale__in=daily_sales)
+            daily_profit = daily_items.aggregate(profit=Sum('profit'))['profit'] or Decimal('0')
+            
+            # For loss calculation, we'll consider products sold below cost
+            daily_loss = daily_items.filter(unit_price__lt=F('cost_price')).aggregate(
+                loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+            )['loss'] or Decimal('0')
+            
+            daily_cost = daily_items.aggregate(cost=Sum(F('cost_price') * F('quantity')))['cost'] or Decimal('0')
+            
+            daily_data.append(ProfitLossType(
+                date=current_date.isoformat(),
+                profit=daily_profit,
+                loss=daily_loss,
+                revenue=daily_revenue,
+                cost=daily_cost
+            ))
+            
+            current_date += timedelta(days=1)
+        
+        # Calculate weekly profit/loss
+        weekly_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            week_start = current_date
+            week_end = min(current_date + timedelta(days=6), end_date)
+            
+            weekly_sales = sales.filter(created_at__date__range=[week_start, week_end])
+            weekly_revenue = weekly_sales.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+            
+            weekly_items = SaleItem.objects.filter(sale__in=weekly_sales)
+            weekly_profit = weekly_items.aggregate(profit=Sum('profit'))['profit'] or Decimal('0')
+            
+            weekly_loss = weekly_items.filter(unit_price__lt=F('cost_price')).aggregate(
+                loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+            )['loss'] or Decimal('0')
+            
+            weekly_cost = weekly_items.aggregate(cost=Sum(F('cost_price') * F('quantity')))['cost'] or Decimal('0')
+            
+            weekly_data.append(ProfitLossType(
+                date=f"{week_start.isoformat()} to {week_end.isoformat()}",
+                profit=weekly_profit,
+                loss=weekly_loss,
+                revenue=weekly_revenue,
+                cost=weekly_cost
+            ))
+            
+            current_date += timedelta(days=7)
+        
+        # Calculate totals
+        total_profit = SaleItem.objects.filter(sale__in=sales).aggregate(
+            profit=Sum('profit')
+        )['profit'] or Decimal('0')
+        
+        total_loss = SaleItem.objects.filter(sale__in=sales, unit_price__lt=F('cost_price')).aggregate(
+            loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+        )['loss'] or Decimal('0')
+        
+        total_revenue = sales.aggregate(revenue=Sum('final_amount'))['revenue'] or Decimal('0')
+        
+        return ProfitLossAnalytics(
+            daily=daily_data,
+            weekly=weekly_data,
+            total_profit=total_profit,
+            total_loss=total_loss,
+            total_revenue=total_revenue
+        )
