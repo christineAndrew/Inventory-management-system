@@ -3,7 +3,11 @@
 // Make sure Sale and related types are properly exported
 export * from './product';
 export * from './sales'; // This should export Sale and related types
-// Product Types
+// File: src/types/index.ts
+
+export * from './inventory';
+
+
 export interface Product {
   id: number;
   name: string;

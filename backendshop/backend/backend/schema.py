@@ -1,3 +1,4 @@
+
 # File: backend/schema.py
 import graphene
 import inventory.schema

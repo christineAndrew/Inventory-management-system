@@ -1,6 +1,9 @@
 from django.db import models
 from decimal import Decimal
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import ArrayField
+
+
 
 # Create your models here.
 
@@ -61,3 +64,61 @@ class SaleItem(models.Model):
         self.total_price = self.unit_price * self.quantity
         self.profit = (self.unit_price - self.cost_price) * self.quantity
         super().save(*args, **kwargs)
+
+        # File: inventory/models.py
+
+
+class Store(models.Model):
+    name = models.CharField(max_length=255)
+    location = models.CharField(max_length=255)
+    address = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return f"{self.name} - {self.location}"
+
+
+class Stock(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='stocks')
+    store = models.ForeignKey('Store', on_delete=models.CASCADE, related_name='stocks')
+    quantity = models.PositiveIntegerField(default=0)
+    low_stock_threshold = models.PositiveIntegerField(default=10)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['product', 'store']
+        ordering = ['store__name', 'product__name']
+
+    def __str__(self):
+        return f"{self.product.name} at {self.store.name}: {self.quantity}"
+
+
+class InventoryMovement(models.Model):
+    MOVEMENT_TYPES = [
+        ('IN', 'Stock In'),
+        ('OUT', 'Stock Out'),
+        ('ADJ', 'Adjustment'),
+        ('TRF', 'Transfer')
+    ]
+
+    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='movements')
+    store = models.ForeignKey('Store', on_delete=models.CASCADE, related_name='movements')
+    movement_type = models.CharField(max_length=3, choices=MOVEMENT_TYPES)
+    quantity = models.IntegerField()
+    previous_quantity = models.IntegerField()
+    new_quantity = models.IntegerField()
+    reason = models.TextField(blank=True)
+    reference = models.CharField(max_length=255, blank=True)
+    created_by = models.ForeignKey('auth.User', on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.movement_type} - {self.product.name} at {self.store.name}"

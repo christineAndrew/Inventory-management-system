@@ -50,6 +50,16 @@ const Navigation: React.FC = () => {
             >
               Sales
             </Link>
+            <Link
+              to="/Inventory"
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                isActive('/Inventory')
+                  ? 'bg-blue-500 text-white'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Inventory
+            </Link>
           </div>
         </div>
       </div>
