@@ -1,9 +1,9 @@
 # File: inventory/schema.py
 import graphene
 from graphene_django import DjangoObjectType
-from django.db.models import Sum, Q, F
+from django.db.models import Sum, Q, F, Avg
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from decimal import Decimal
 from .models import Product, Sale, SaleItem, Store, Stock, InventoryMovement
 import random
@@ -90,10 +90,28 @@ class SaleType(DjangoObjectType):
     tax_amount = graphene.Decimal()
     discount_amount = graphene.Decimal()
     final_amount = graphene.Decimal()
+    total_profit = graphene.Decimal()
+    total_loss = graphene.Decimal()
+    net_profit = graphene.Decimal()
     items = graphene.List(lambda: SaleItemType)
 
     def resolve_items(self, info):
         return self.items.all()
+    
+    def resolve_total_profit(self, info):
+        # Calculate total profit from all items where profit > 0
+        positive_profits = self.items.filter(profit__gt=0).aggregate(total=Sum('profit'))['total'] or Decimal('0')
+        return positive_profits
+    
+    def resolve_total_loss(self, info):
+        # Calculate total loss from all items where profit < 0 (convert to positive value)
+        negative_profits = self.items.filter(profit__lt=0).aggregate(total=Sum('profit'))['total'] or Decimal('0')
+        return abs(negative_profits)
+    
+    def resolve_net_profit(self, info):
+        # Calculate net profit (total profit - total loss)
+        total_profit = self.items.aggregate(total=Sum('profit'))['total'] or Decimal('0')
+        return total_profit
 
 class DashboardDataType(graphene.ObjectType):
     daily_profit = graphene.Decimal()
@@ -116,6 +134,29 @@ class RecentSaleType(graphene.ObjectType):
     amount = graphene.Decimal()
     sale_date = graphene.DateTime()
 
+
+
+
+class SalesTrendType(graphene.ObjectType):
+    date = graphene.String()
+    amount = graphene.Decimal()
+
+class TopProductType(graphene.ObjectType):
+    product_name = graphene.String()
+    total_sold = graphene.Int()
+    total_revenue = graphene.Decimal()
+
+class AnalyticsType(graphene.ObjectType):
+    total_sales = graphene.Decimal()
+    total_profit = graphene.Decimal()
+    total_products_sold = graphene.Int()
+    average_order_value = graphene.Decimal()
+    top_selling_products = graphene.List(TopProductType)
+    sales_trend = graphene.List(SalesTrendType)
+
+
+
+
 class ProfitLossDataType(graphene.ObjectType):
     date = graphene.String()
     profit = graphene.Decimal()
@@ -135,6 +176,7 @@ class ProfitLossAnalytics(graphene.ObjectType):
     total_loss = graphene.Decimal()
     total_revenue = graphene.Decimal()
 
+
 # -------------------------
 # Input Types
 # -------------------------
@@ -152,9 +194,6 @@ class SaleItemInput(graphene.InputObjectType):
     unit_price = graphene.Decimal(required=True)
 
 class SaleInput(graphene.InputObjectType):
-    customer_name = graphene.String()
-    customer_email = graphene.String()
-    customer_phone = graphene.String()
     items = graphene.List(SaleItemInput, required=True)
     tax_amount = graphene.Decimal(default_value=0)
     discount_amount = graphene.Decimal(default_value=0)
@@ -259,9 +298,9 @@ class CreateSale(graphene.Mutation):
 
         sale = Sale.objects.create(
             sale_number=sale_number,
-            customer_name=input.customer_name or '',
-            customer_email=input.customer_email or '',
-            customer_phone=input.customer_phone or '',
+            customer_name='',  # Remove customer details
+            customer_email='',
+            customer_phone='',
             total_amount=total_amount,
             tax_amount=tax_amount,
             discount_amount=discount_amount,
@@ -346,6 +385,10 @@ class CreateStockMovement(graphene.Mutation):
         )
 
         return CreateStockMovement(movement=movement, stock=stock)
+
+
+
+
 
 # -------------------------
 # Root Mutation
@@ -486,3 +529,230 @@ class Query(graphene.ObjectType):
             start_date = timezone.now() - timedelta(days=days)
             queryset = queryset.filter(created_at__gte=start_date)
         return queryset.order_by('-created_at')
+
+
+    analytics = graphene.Field(
+        AnalyticsType,
+        period=graphene.String(),
+        start_date=graphene.String(),
+        end_date=graphene.String()
+    )
+    
+    profit_loss_analytics = graphene.Field(
+        ProfitLossAnalytics,
+        days=graphene.Int(default_value=30)
+    )
+
+    def resolve_analytics(self, info, period='week', start_date=None, end_date=None):
+        from django.utils.dateparse import parse_date
+        from datetime import datetime
+        
+        # Calculate date range based on period or custom dates
+        today = timezone.now().date()
+        
+        # Handle custom date parameters first
+        if start_date or end_date:
+            # Parse custom start_date if provided
+            if start_date:
+                try:
+                    if isinstance(start_date, str):
+                        # Try parsing as YYYY-MM-DD date
+                        parsed_start = parse_date(start_date)
+                        if parsed_start is None:
+                            # Try parsing as ISO datetime and extract date
+                            try:
+                                parsed_start = datetime.fromisoformat(start_date.replace('Z', '+00:00')).date()
+                            except ValueError:
+                                raise ValueError(f"Invalid start_date format: {start_date}. Use YYYY-MM-DD format.")
+                        start_date = parsed_start
+                    elif not hasattr(start_date, 'year'):  # Not a date object
+                        raise ValueError(f"Invalid start_date type: {type(start_date)}")
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid start_date: {e}")
+            else:
+                start_date = today - timedelta(days=30)  # Default to 30 days ago
+                
+            # Parse custom end_date if provided
+            if end_date:
+                try:
+                    if isinstance(end_date, str):
+                        # Try parsing as YYYY-MM-DD date
+                        parsed_end = parse_date(end_date)
+                        if parsed_end is None:
+                            # Try parsing as ISO datetime and extract date
+                            try:
+                                parsed_end = datetime.fromisoformat(end_date.replace('Z', '+00:00')).date()
+                            except ValueError:
+                                raise ValueError(f"Invalid end_date format: {end_date}. Use YYYY-MM-DD format.")
+                        end_date = parsed_end
+                    elif not hasattr(end_date, 'year'):  # Not a date object
+                        raise ValueError(f"Invalid end_date type: {type(end_date)}")
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid end_date: {e}")
+            else:
+                end_date = today  # Default to today
+                
+        else:
+            # Use predefined periods if no custom dates provided
+            if period == 'day':
+                start_date = today
+                end_date = today
+            elif period == 'week':
+                start_date = today - timedelta(days=7)
+                end_date = today
+            elif period == 'month':
+                start_date = today - timedelta(days=30)
+                end_date = today
+            else:
+                # Default to week if invalid period
+                start_date = today - timedelta(days=7)
+                end_date = today
+                
+        # Ensure start_date is not after end_date
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
+        
+        # Filter sales by date range
+        sales = Sale.objects.filter(
+            created_at__date__range=[start_date, end_date],
+            status='COMPLETED'
+        )
+        
+        # Calculate metrics
+        total_sales = sales.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+        total_items = SaleItem.objects.filter(sale__in=sales).aggregate(total=Sum('quantity'))['total'] or 0
+        
+        # Calculate profit
+        profit_data = SaleItem.objects.filter(sale__in=sales).aggregate(
+            total_profit=Sum('profit')
+        )
+        total_profit = profit_data['total_profit'] or Decimal('0')
+        
+        # Average order value
+        avg_order_value = sales.aggregate(avg=Avg('final_amount'))['avg'] or Decimal('0')
+        
+        # Top selling products
+        top_products_raw = SaleItem.objects.filter(sale__in=sales).values(
+            'product__name'
+        ).annotate(
+            total_sold=Sum('quantity'),
+            total_revenue=Sum('total_price')
+        ).order_by('-total_sold')[:10]
+        
+        # Convert to GraphQL objects
+        top_products = [TopProductType(
+            product_name=item['product__name'],
+            total_sold=item['total_sold'],
+            total_revenue=item['total_revenue'] or Decimal('0')
+        ) for item in top_products_raw]
+        
+        # Sales trend data
+        sales_trend = []
+        current_date = start_date
+        while current_date <= end_date:
+            daily_sales = sales.filter(created_at__date=current_date).aggregate(
+                total=Sum('final_amount')
+            )['total'] or Decimal('0')
+            
+            sales_trend.append(SalesTrendType(
+                date=current_date.isoformat(),
+                amount=daily_sales
+            ))
+            current_date += timedelta(days=1)
+        
+        return AnalyticsType(
+            total_sales=total_sales,
+            total_profit=total_profit,
+            total_products_sold=total_items,
+            average_order_value=avg_order_value,
+            top_selling_products=top_products,
+            sales_trend=sales_trend
+        )
+
+    def resolve_profit_loss_analytics(self, info, days=30):
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days)
+        
+        # Get all completed sales in the period
+        sales = Sale.objects.filter(
+            created_at__date__range=[start_date, end_date],
+            status='COMPLETED'
+        )
+        
+        # Calculate daily profit/loss
+        daily_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            daily_sales = sales.filter(created_at__date=current_date)
+            daily_revenue = daily_sales.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+            
+            # Calculate profit and loss
+            daily_items = SaleItem.objects.filter(sale__in=daily_sales)
+            daily_profit = daily_items.aggregate(profit=Sum('profit'))['profit'] or Decimal('0')
+            
+            # For loss calculation (products sold below cost)
+            daily_loss = daily_items.filter(unit_price__lt=F('cost_price')).aggregate(
+                loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+            )['loss'] or Decimal('0')
+            
+            daily_cost = daily_items.aggregate(cost=Sum(F('cost_price') * F('quantity')))['cost'] or Decimal('0')
+            
+            daily_data.append(ProfitLossType(
+                date=current_date.isoformat(),
+                profit=daily_profit,
+                loss=daily_loss,
+                revenue=daily_revenue,
+                cost=daily_cost
+            ))
+            
+            current_date += timedelta(days=1)
+        
+        # Calculate weekly profit/loss
+        weekly_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            week_start = current_date
+            week_end = min(current_date + timedelta(days=6), end_date)
+            
+            weekly_sales = sales.filter(created_at__date__range=[week_start, week_end])
+            weekly_revenue = weekly_sales.aggregate(total=Sum('final_amount'))['total'] or Decimal('0')
+            
+            weekly_items = SaleItem.objects.filter(sale__in=weekly_sales)
+            weekly_profit = weekly_items.aggregate(profit=Sum('profit'))['profit'] or Decimal('0')
+            
+            weekly_loss = weekly_items.filter(unit_price__lt=F('cost_price')).aggregate(
+                loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+            )['loss'] or Decimal('0')
+            
+            weekly_cost = weekly_items.aggregate(cost=Sum(F('cost_price') * F('quantity')))['cost'] or Decimal('0')
+            
+            weekly_data.append(ProfitLossType(
+                date=f"{week_start.isoformat()} to {week_end.isoformat()}",
+                profit=weekly_profit,
+                loss=weekly_loss,
+                revenue=weekly_revenue,
+                cost=weekly_cost
+            ))
+            
+            current_date += timedelta(days=7)
+        
+        # Calculate totals
+        total_profit = SaleItem.objects.filter(sale__in=sales).aggregate(
+            profit=Sum('profit')
+        )['profit'] or Decimal('0')
+        
+        total_loss = SaleItem.objects.filter(sale__in=sales, unit_price__lt=F('cost_price')).aggregate(
+            loss=Sum((F('cost_price') - F('unit_price')) * F('quantity'))
+        )['loss'] or Decimal('0')
+        
+        total_revenue = sales.aggregate(revenue=Sum('final_amount'))['revenue'] or Decimal('0')
+        
+        return ProfitLossAnalytics(
+            daily=daily_data,
+            weekly=weekly_data,
+            total_profit=total_profit,
+            total_loss=total_loss,
+            total_revenue=total_revenue
+        )

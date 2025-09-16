@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { GET_PRODUCTS, GET_STORES } from '../../api/queries';
-import  type{ Stock, StockMovementInput, Product, Store } from '../../types';
+import type { Stock, StockMovementInput, Product, Store } from '../../types';
 
 // Define response types for the queries
 interface ProductsQueryResult {

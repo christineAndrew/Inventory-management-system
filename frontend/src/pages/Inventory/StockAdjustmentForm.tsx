@@ -57,8 +57,8 @@ const StockAdjustmentForm: React.FC<StockAdjustmentFormProps> = ({ stock, onClos
         <form onSubmit={handleSubmit} className="p-6">
           {stock && (
             <div className="mb-4">
-              <p className="text-sm text-gray-600">Product: <span className="font-medium">{stock.productName}</span></p>
-              <p className="text-sm text-gray-600">Store: <span className="font-medium">{stock.storeName}</span></p>
+              <p className="text-sm text-gray-600">Product: <span className="font-medium">{stock.product.name}</span></p>
+              <p className="text-sm text-gray-600">Store: <span className="font-medium">{stock.store.name}</span></p>
               <p className="text-sm text-gray-600">Current Quantity: <span className="font-medium">{stock.quantity}</span></p>
             </div>
           )}

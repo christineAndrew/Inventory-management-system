@@ -14,11 +14,16 @@ interface ProductsQueryResult {
   products: Product[];
 }
 
+// Interface for profit/loss calculations
+interface ItemProfitData {
+  profit: number;
+  loss: number;
+  profitMargin: number;
+  costPrice: number;
+}
+
 const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) => {
   const [saleData, setSaleData] = useState<SaleInput>({
-    customerName: '',
-    customerEmail: '',
-    customerPhone: '',
     items: [],
     taxAmount: 0,
     discountAmount: 0,
@@ -86,6 +91,37 @@ const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) =>
   // Get the selected product to show its selling price as default
   const selectedProduct = productsData?.products?.find(p => p.id === currentItem.productId);
 
+  // Calculate profit/loss for an item
+  const calculateItemProfitData = (item: SaleItemInput): ItemProfitData => {
+    const product = productsData?.products?.find(p => p.id === item.productId);
+    if (!product) return { profit: 0, loss: 0, profitMargin: 0, costPrice: 0 };
+    
+    const costPrice = product.costPrice;
+    const totalCost = costPrice * item.quantity;
+    const totalRevenue = item.unitPrice * item.quantity;
+    const profitAmount = totalRevenue - totalCost;
+    const profitMargin = totalRevenue > 0 ? (profitAmount / totalRevenue) * 100 : 0;
+    
+    return {
+      profit: profitAmount > 0 ? profitAmount : 0,
+      loss: profitAmount < 0 ? Math.abs(profitAmount) : 0,
+      profitMargin: profitMargin,
+      costPrice: costPrice
+    };
+  };
+
+  // Calculate total profit/loss for the sale
+  const calculateTotalProfitLoss = () => {
+    return saleData.items.reduce((acc, item) => {
+      const itemData = calculateItemProfitData(item);
+      return {
+        totalProfit: acc.totalProfit + itemData.profit,
+        totalLoss: acc.totalLoss + itemData.loss,
+        netProfit: acc.totalProfit + itemData.profit - (acc.totalLoss + itemData.loss)
+      };
+    }, { totalProfit: 0, totalLoss: 0, netProfit: 0 });
+  };
+
   // Set default unit price when product is selected
   React.useEffect(() => {
     if (selectedProduct && currentItem.unitPrice === 0) {
@@ -94,7 +130,7 @@ const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) =>
         unitPrice: selectedProduct.sellingPrice
       }));
     }
-  }, [currentItem.productId, selectedProduct]);
+  }, [currentItem.productId, currentItem.unitPrice, selectedProduct]);
 
   if (productsLoading) return <div>Loading products...</div>;
 
@@ -106,39 +142,6 @@ const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) =>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
-          {/* Customer Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-              <input
-                type="text"
-                value={saleData.customerName}
-                onChange={(e) => setSaleData({ ...saleData, customerName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
-              <input
-                type="email"
-                value={saleData.customerEmail}
-                onChange={(e) => setSaleData({ ...saleData, customerEmail: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Optional"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
-              <input
-                type="tel"
-                value={saleData.customerPhone}
-                onChange={(e) => setSaleData({ ...saleData, customerPhone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                placeholder="Optional"
-              />
-            </div>
-          </div>
 
           {/* Add Items */}
           <div className="mb-6">
@@ -191,33 +194,66 @@ const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) =>
               </div>
             </div>
 
-            {/* Items List */}
+            {/* Items List with Profit/Loss Details */}
             {saleData.items.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-3">
-                <h4 className="font-medium mb-2">Items in Sale</h4>
-                {saleData.items.map((item, index) => {
-                  const product = productsData?.products?.find((p: Product) => p.id === item.productId);
-                  return (
-                    <div key={index} className="flex justify-between items-center py-2 border-b">
-                      <div>
-                        <span className="font-medium">{product?.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">
-                          {item.quantity} x ${item.unitPrice.toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="mr-3">${(item.quantity * item.unitPrice).toFixed(2)}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItem(index)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium mb-3">Items in Sale - Profit/Loss Analysis</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead>
+                      <tr className="text-xs text-gray-600 border-b">
+                        <th className="text-left pb-2">Product</th>
+                        <th className="text-right pb-2">Qty</th>
+                        <th className="text-right pb-2">Cost</th>
+                        <th className="text-right pb-2">Price</th>
+                        <th className="text-right pb-2">Revenue</th>
+                        <th className="text-right pb-2">Profit/Loss</th>
+                        <th className="text-center pb-2">Margin</th>
+                        <th className="text-center pb-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saleData.items.map((item, index) => {
+                        const product = productsData?.products?.find((p: Product) => p.id === item.productId);
+                        const profitData = calculateItemProfitData(item);
+                        const isProfitable = profitData.profit > profitData.loss;
+                        
+                        return (
+                          <tr key={index} className="border-b text-sm">
+                            <td className="py-2">
+                              <div>
+                                <span className="font-medium">{product?.name}</span>
+                              </div>
+                            </td>
+                            <td className="text-right py-2">{item.quantity}</td>
+                            <td className="text-right py-2">${profitData.costPrice.toFixed(2)}</td>
+                            <td className="text-right py-2">${item.unitPrice.toFixed(2)}</td>
+                            <td className="text-right py-2">${(item.quantity * item.unitPrice).toFixed(2)}</td>
+                            <td className={`text-right py-2 font-medium ${
+                              isProfitable ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {isProfitable ? '+' : '-'}${(isProfitable ? profitData.profit : profitData.loss).toFixed(2)}
+                            </td>
+                            <td className={`text-center py-2 text-xs ${
+                              profitData.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {profitData.profitMargin.toFixed(1)}%
+                            </td>
+                            <td className="text-center py-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(index)}
+                                className="text-red-500 hover:text-red-700 text-xs"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -260,6 +296,38 @@ const CreateSaleForm: React.FC<CreateSaleFormProps> = ({ onClose, onSubmit }) =>
               </select>
             </div>
           </div>
+
+          {/* Profit/Loss Summary */}
+          {saleData.items.length > 0 && (() => {
+            const profitLoss = calculateTotalProfitLoss();
+            return (
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-900 mb-3">Profit/Loss Summary</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      +${profitLoss.totalProfit.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-600">Total Profit</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      -${profitLoss.totalLoss.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-600">Total Loss</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`text-2xl font-bold ${
+                      profitLoss.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {profitLoss.netProfit >= 0 ? '+' : ''}${profitLoss.netProfit.toFixed(2)}
+                    </div>
+                    <div className="text-sm text-gray-600">Net Profit</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Summary */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">

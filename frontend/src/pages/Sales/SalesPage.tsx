@@ -23,10 +23,28 @@ const SalesPage: React.FC = () => {
   });
 
   // Fixed: Properly type the error parameter and use onError in the correct way
+  // Helper function to safely convert date string to ISO string
+  const toISOString = (dateString: string): string | undefined => {
+    if (!dateString) return undefined;
+    
+    try {
+      const date = new Date(dateString);
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date provided:', dateString);
+        return undefined;
+      }
+      return date.toISOString();
+    } catch (error) {
+      console.warn('Error parsing date:', dateString, error);
+      return undefined;
+    }
+  };
+
   const { data, loading, error, refetch } = useQuery<SalesQueryResult>(GET_SALES, {
     variables: {
-      startDate: filters.startDate ? new Date(filters.startDate).toISOString() : undefined,
-      endDate: filters.endDate ? new Date(filters.endDate).toISOString() : undefined
+      startDate: toISOString(filters.startDate),
+      endDate: toISOString(filters.endDate)
     },
     errorPolicy: 'all'
   });
@@ -59,7 +77,7 @@ const SalesPage: React.FC = () => {
     setShowReceipt(true);
   };
 
-  const handleFilterChange = (newFilters: any) => {
+  const handleFilterChange = (newFilters: { startDate: string; endDate: string }) => {
     setFilters(newFilters);
   };
 

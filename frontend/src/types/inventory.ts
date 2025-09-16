@@ -4,16 +4,18 @@ export interface Store {
   name: string;
   location: string;
   address: string;
-  is_active: boolean;
+  isActive: boolean;
+  // Keep this for backward compatibility
+  is_active?: boolean;
 }
 
 export interface Stock {
   id: number;
   quantity: number;
-  low_stock_threshold: number;
-  last_updated: string;
-  product_name: string;
-  store_name: string;
+  lowStockThreshold: number;
+  lastUpdated: string;
+  productName: string;
+  storeName: string;
   product: {
     id: number;
     name: string;
@@ -24,11 +26,11 @@ export interface Stock {
     name: string;
     location: string;
   };
-  // Add these for backward compatibility in components
-  lowStockThreshold?: number;
-  lastUpdated?: string;
-  productName?: string;
-  storeName?: string;
+  // Keep these for backward compatibility in components
+  low_stock_threshold?: number;
+  last_updated?: string;
+  product_name?: string;
+  store_name?: string;
 }
 
 export interface InventoryMovement {

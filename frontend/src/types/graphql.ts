@@ -5,7 +5,7 @@ export interface GetStoresResponse {
     name: string;
     location: string;
     address: string;
-    is_active: boolean;
+    isActive: boolean;
   }>;
 }
 
@@ -14,10 +14,10 @@ export interface GetStocksResponse {
   stocks: Array<{
     id: string;
     quantity: number;
-    low_stock_threshold: number;
-    last_updated: string;
-    product_name: string;
-    store_name: string;
+    lowStockThreshold: number;
+    lastUpdated: string;
+    productName: string;
+    storeName: string;
     product: {
       id: string;
       name: string;

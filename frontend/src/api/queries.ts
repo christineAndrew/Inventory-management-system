@@ -156,7 +156,7 @@ export const GET_STORES = gql`
       name
       location
       address
-      is_active
+      isActive
     }
   }
 `;
@@ -166,10 +166,10 @@ export const GET_STOCKS = gql`
     stocks(storeId: $storeId, productId: $productId, lowStock: $lowStock) {
       id
       quantity
-      low_stock_threshold
-      last_updated
-      product_name
-      store_name
+      lowStockThreshold
+      lastUpdated
+      productName
+      storeName
       product {
         id
         name
@@ -243,3 +243,47 @@ export const CREATE_STOCK_MOVEMENT = gql`
     }
   }
 `;
+
+
+
+// File: src/api/queries.ts
+export const GET_ANALYTICS = gql`
+  query GetAnalytics($period: String, $startDate: String, $endDate: String) {
+    analytics(period: $period, startDate: $startDate, endDate: $endDate) {
+      totalSales
+      totalProfit
+      totalProductsSold
+      averageOrderValue
+      topSellingProducts
+      salesTrend {
+        date
+        amount
+      }
+    }
+  }
+`;
+
+export const GET_PROFIT_LOSS_ANALYTICS = gql`
+  query GetProfitLossAnalytics($days: Int) {
+    profitLossAnalytics(days: $days) {
+      daily {
+        date
+        profit
+        loss
+        revenue
+        cost
+      }
+      weekly {
+        date
+        profit
+        loss
+        revenue
+        cost
+      }
+      totalProfit
+      totalLoss
+      totalRevenue
+    }
+  }
+`;
+

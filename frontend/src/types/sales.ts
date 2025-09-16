@@ -2,13 +2,13 @@
 export interface Sale {
   id: number;
   saleNumber: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
   totalAmount: number;
   taxAmount: number;
   discountAmount: number;
   finalAmount: number;
+  totalProfit: number;
+  totalLoss: number;
+  netProfit: number;
   status: string;
   paymentMethod: string;
   notes: string;
@@ -26,9 +26,6 @@ export interface SaleItem {
 }
 
 export interface SaleInput {
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
   items: SaleItemInput[];
   taxAmount?: number;
   discountAmount?: number;

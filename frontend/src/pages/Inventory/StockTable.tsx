@@ -68,9 +68,7 @@ const StockTable: React.FC<StockTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {stocks.map((stock) => {
-              const lowStockThreshold = stock.lowStockThreshold || stock.low_stock_threshold || 0;
-              const lastUpdated = stock.lastUpdated || stock.last_updated || '';
-              const isLowStock = stock.quantity <= lowStockThreshold;
+              const isLowStock = stock.quantity <= stock.lowStockThreshold;
               return (
                 <tr key={stock.id} className={isLowStock ? 'bg-red-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -100,7 +98,7 @@ const StockTable: React.FC<StockTableProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {lowStockThreshold}
+                      {stock.lowStockThreshold}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -121,7 +119,7 @@ const StockTable: React.FC<StockTableProps> = ({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(lastUpdated).toLocaleDateString()}
+                    {new Date(stock.lastUpdated).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button

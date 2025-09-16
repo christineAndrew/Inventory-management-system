@@ -14,7 +14,7 @@ const Navigation: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <Link to="/" className="text-xl font-bold text-gray-800">
-            Shop Inventory
+            SAROMO SHOP
           </Link>
           
           <div className="flex space-x-6">
@@ -59,6 +59,16 @@ const Navigation: React.FC = () => {
               }`}
             >
               Inventory
+            </Link>
+              <Link 
+              to="/analytics" 
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                isActive('/analytics') 
+                  ? 'bg-blue-500 text-white' 
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Analytics
             </Link>
           </div>
         </div>
